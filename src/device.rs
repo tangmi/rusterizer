@@ -14,7 +14,6 @@ use sdl2::render::Texture;
 use sdl2::EventPump;
 
 use cgmath::EuclideanVector;
-use cgmath::Point;
 use cgmath::Vector2;
 use cgmath::Vector3;
 use cgmath::Matrix3;
@@ -91,7 +90,44 @@ impl<'a> Device<'a> {
             self.bitmap.set_pixel(point, Color::RGB(255, 255, 0));
         }
     }
+    
+    /// draw a line with Bresenham's algorithm
+    fn draw_bline(&mut self, point0: Vector2<f32>, point1: Vector2<f32>) {
+    	let mut x0 = point0.x as i32;
+    	let mut y0 = point0.y as i32;
+    	let x1 = point1.x as i32;
+    	let y1 = point1.y as i32;
+    	
+    	let dx = (x1 - x0).abs();
+    	let dy = (y1 - y0).abs();
+    	
+    	let sx = (x1 - x0).signum();
+    	let sy = (y1 - y0).signum();
+    	
+//	    var sx = (x0 < x1) ? 1 : -1;
+//	    var sy = (y0 < y1) ? 1 : -1;
+	    let mut err = dx - dy;
+	
+	    loop {
+	        self.draw_point(Vector2::new(x0, y0).cast());
+	
+	        if (x0 == x1) && (y0 == y1) {
+	        	break;
+	        }
+	        let err_2 = 2 * err;
+	        if err_2 > -dy {
+	        	err -= dy;
+	        	x0 += sx;
+	        }
+	        if err_2 < dx {
+	        	err += dx;
+	        	y0 += sy;
+	        }
+	    }
+    }
 
+	#[allow(dead_code)]
+	/// recursive draw line
     fn draw_line(&mut self, point1: Vector2<f32>, point2: Vector2<f32>) {
         let diff = point2 - point1;
         let dist = diff.length();
@@ -118,9 +154,7 @@ impl<'a> Device<'a> {
                                                  1.0);
 
         for mesh in meshes {
-            let cam_from_origin = -cam.position.to_vec();
-            let world_mat = Matrix4::from_translation(cam_from_origin) *
-                            Matrix4::from_translation(mesh.position) *
+            let world_mat = Matrix4::from_translation(mesh.position) *
                             Matrix4::from(Matrix3::from_euler(cgmath::rad(mesh.rotation.x),
                                                               cgmath::rad(mesh.rotation.y),
                                                               cgmath::rad(mesh.rotation.z)));
@@ -131,7 +165,7 @@ impl<'a> Device<'a> {
                 let point1 = self.project(mesh.vertices[i], mat);
                 let point2 = self.project(mesh.vertices[i + 1], mat);
 
-                self.draw_line(point1.cast(), point2.cast());
+                self.draw_bline(point1.cast(), point2.cast());
             }
 
             //            for vertex in mesh.vertices.iter() {
