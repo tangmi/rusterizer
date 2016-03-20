@@ -1,0 +1,13 @@
+[package]
+
+name = "rusterizer"
+version = "0.0.1"
+authors = [ "Your name <you@example.com>" ]
+
+[[bin]]
+
+name = "rusterizer"
+
+[dependencies]
+sdl2 = "0.16"
+cgmath = "0.7.0"
