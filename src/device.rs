@@ -90,44 +90,46 @@ impl<'a> Device<'a> {
             self.bitmap.set_pixel(point, Color::RGB(255, 255, 0));
         }
     }
-    
+
     /// draw a line with Bresenham's algorithm
     fn draw_bline(&mut self, point0: Vector2<f32>, point1: Vector2<f32>) {
-    	let mut x0 = point0.x as i32;
-    	let mut y0 = point0.y as i32;
-    	let x1 = point1.x as i32;
-    	let y1 = point1.y as i32;
-    	
-    	let dx = (x1 - x0).abs();
-    	let dy = (y1 - y0).abs();
-    	
-    	let sx = (x1 - x0).signum();
-    	let sy = (y1 - y0).signum();
-    	
-//	    var sx = (x0 < x1) ? 1 : -1;
-//	    var sy = (y0 < y1) ? 1 : -1;
-	    let mut err = dx - dy;
-	
-	    loop {
-	        self.draw_point(Vector2::new(x0, y0).cast());
-	
-	        if (x0 == x1) && (y0 == y1) {
-	        	break;
-	        }
-	        let err_2 = 2 * err;
-	        if err_2 > -dy {
-	        	err -= dy;
-	        	x0 += sx;
-	        }
-	        if err_2 < dx {
-	        	err += dx;
-	        	y0 += sy;
-	        }
-	    }
+        let mut x0 = point0.x as i32;
+        let mut y0 = point0.y as i32;
+
+        let x1 = point1.x as i32;
+        let y1 = point1.y as i32;
+
+        let dx = (x1 - x0).abs();
+        let dy = (y1 - y0).abs();
+
+        let sx = (x1 - x0).signum();
+        let sy = (y1 - y0).signum();
+
+        let mut err = dx - dy;
+
+        loop {
+            self.draw_point(Vector2::new(x0, y0).cast());
+
+            if (x0 == x1) && (y0 == y1) {
+                return;
+            }
+
+            let err_2 = 2 * err;
+
+            if err_2 > -dy {
+                err -= dy;
+                x0 += sx;
+            }
+
+            if err_2 < dx {
+                err += dx;
+                y0 += sy;
+            }
+        }
     }
 
-	#[allow(dead_code)]
-	/// recursive draw line
+    #[allow(dead_code)]
+    /// recursive draw line
     fn draw_line(&mut self, point1: Vector2<f32>, point2: Vector2<f32>) {
         let diff = point2 - point1;
         let dist = diff.length();
@@ -161,20 +163,19 @@ impl<'a> Device<'a> {
 
             let mat = projection_mat * view_mat * world_mat;
 
-            for i in 0..(mesh.vertices.len() - 1) {
-                let point1 = self.project(mesh.vertices[i], mat);
-                let point2 = self.project(mesh.vertices[i + 1], mat);
+            for face in &mesh.faces {
+                let vert_a = mesh.vertices[face.a];
+                let vert_b = mesh.vertices[face.b];
+                let vert_c = mesh.vertices[face.c];
 
-                self.draw_bline(point1.cast(), point2.cast());
+                let pixel_a = self.project(vert_a, mat).cast();
+                let pixel_b = self.project(vert_b, mat).cast();
+                let pixel_c = self.project(vert_c, mat).cast();
+
+                self.draw_bline(pixel_a, pixel_b);
+                self.draw_bline(pixel_b, pixel_c);
+                self.draw_bline(pixel_c, pixel_a);
             }
-
-            //            for vertex in mesh.vertices.iter() {
-            //                let point = self.project(*vertex, mat);
-            //
-            //                // println!("projected point = {:?}", point);
-            //
-            //                self.set_pixel(point);
-            //            }
         }
     }
 

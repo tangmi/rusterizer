@@ -11,3 +11,4 @@ name = "rusterizer"
 [dependencies]
 sdl2 = "0.16"
 cgmath = "0.7.0"
+time = "0.1.34"
