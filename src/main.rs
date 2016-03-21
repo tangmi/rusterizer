@@ -9,6 +9,7 @@ mod bitmap;
 mod device;
 mod camera;
 mod mesh;
+mod math;
 
 use device::{Device, EventPumpAction};
 use camera::Camera;
