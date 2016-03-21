@@ -4,6 +4,7 @@ extern crate cgmath;
 use camera::Camera;
 use mesh::Mesh;
 use bitmap::Bitmap;
+use bitmap::pixel_format::Rgb24;
 
 use sdl2::pixels::Color;
 use sdl2::event::Event;
@@ -27,7 +28,7 @@ pub struct Device<'a> {
     // window: Window,
     renderer: Renderer<'a>,
     back_buffer: Texture,
-    bitmap: Bitmap,
+    bitmap: Bitmap<Rgb24>,
     event_pump: EventPump,
 }
 
@@ -76,18 +77,31 @@ impl<'a> Device<'a> {
 
     fn copy_bitmap_to_back_buffer(&mut self) {
         let slice = self.bitmap.slice();
+        let pixel_width = self.bitmap.pixel_width();
+        
+        let width = self.bitmap.width();
+        let height = self.bitmap.height();
+        
         self.back_buffer
             .with_lock(None, |buffer: &mut [u8], _: usize| {
-                for i in 0..slice.len() {
-                    buffer[i] = slice[i];
-                }
+        		for y in 0..height {
+        			for x in 0..width {
+        				let offset = (y * width + x) as usize;
+        				let woffset = offset * pixel_width;
+        				let rgb24 = slice[offset];
+        				
+        				buffer[woffset + 0] = rgb24.r;
+        				buffer[woffset + 1] = rgb24.g;
+        				buffer[woffset + 2] = rgb24.b;
+        			}
+        		}
             })
             .unwrap();
     }
 
     fn draw_point(&mut self, point: Vector2<u32>) {
         if point.x < self.bitmap.width() && point.y < self.bitmap.height() {
-            self.bitmap.set_pixel(point, Color::RGB(255, 255, 0));
+            self.bitmap.set_pixel(point, Rgb24::from(Color::RGB(255, 255, 0)));
         }
     }
 
@@ -179,6 +193,22 @@ impl<'a> Device<'a> {
         }
     }
 
+    fn draw_triangle(p1: Vector3<f64>, p2: Vector3<f64>, p3: Vector3<f64>, color: Color) {
+        unimplemented!();
+    }
+
+    /// drawing line between 2 points from left to right
+    /// papb -> pcpd
+    /// pa, pb, pc, pd must then be sorted before
+    fn process_scan_line(y: u32,
+                         pa: Vector3<f64>,
+                         pb: Vector3<f64>,
+                         pc: Vector3<f64>,
+                         pd: Vector3<f64>,
+                         color: Color) {
+        unimplemented!();
+    }
+
     fn project(&self, vertex: Vector3<f64>, mat: Matrix4<f64>) -> Vector2<u32> {
         let point = mat * vertex.extend(1.0);
 
@@ -192,7 +222,7 @@ impl<'a> Device<'a> {
     }
 
     pub fn clear(&mut self, color: Color) {
-        self.bitmap.clear(color);
+        self.bitmap.clear(Rgb24::from(color));
     }
 
     pub fn present(&mut self) {
