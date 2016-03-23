@@ -3,7 +3,6 @@ use cgmath::Vector2;
 
 pub struct Bitmap<T> {
     buffer: Vec<T>,
-    pixel_width: usize,
     width: u32,
     height: u32,
 }
@@ -22,16 +21,10 @@ impl<T> Bitmap<T>
 
         Bitmap {
             buffer: buffer,
-            pixel_width: size,
             width: width,
             height: height,
         }
     }
-
-    pub fn pixel_width(&self) -> usize {
-        self.pixel_width
-    }
-
 
     pub fn width(&self) -> u32 {
         self.width

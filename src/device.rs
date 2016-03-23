@@ -8,6 +8,7 @@ use camera::Camera;
 use mesh::Mesh;
 use bitmap::Bitmap;
 use bitmap::pixel_format::Rgb24;
+use bitmap::pixel_format::TransferToRgb;
 use math::Interpolate;
 
 use sdl2::pixels::Color;
@@ -258,8 +259,6 @@ impl<'a> Device<'a> {
         let width = self.back_buffer.width() as f64;
         let height = self.back_buffer.height() as f64;
 
-        // println!("y coord = {}", -point.y * height + height / 2.0);
-
         Vector3::new(point.x * width + width / 2.0,
                      -point.y * height + height / 2.0,
                      point.z)
@@ -270,32 +269,32 @@ impl<'a> Device<'a> {
         self.depth_buffer.clear(f64::MAX);
     }
 
-    fn copy_back_buffer_to_texture(&mut self) {
-        let slice = self.back_buffer.slice();
-        let pixel_width = self.back_buffer.pixel_width();
+    fn copy_bitmap_to_texture<T>(src_bitmap: &Bitmap<T>, dest_texture: &mut Texture)
+        where T: Copy + Default + TransferToRgb
+    {
+        let slice = src_bitmap.slice();
+        let width = src_bitmap.width();
+        let height = src_bitmap.height();
 
-        let width = self.back_buffer.width();
-        let height = self.back_buffer.height();
+        dest_texture.with_lock(None, |buffer: &mut [u8], _: usize| {
+                        for y in 0..height {
+                            for x in 0..width {
+                                let offset = (y * width + x) as usize;
+                                let woffset = offset * 3;
+                                let (r, g, b) = slice[offset].transfer();
 
-        self.texture
-            .with_lock(None, |buffer: &mut [u8], _: usize| {
-                for y in 0..height {
-                    for x in 0..width {
-                        let offset = (y * width + x) as usize;
-                        let woffset = offset * pixel_width;
-                        let rgb24 = slice[offset];
-
-                        buffer[woffset + 0] = rgb24.r;
-                        buffer[woffset + 1] = rgb24.g;
-                        buffer[woffset + 2] = rgb24.b;
-                    }
-                }
-            })
-            .unwrap();
+                                buffer[woffset + 0] = r;
+                                buffer[woffset + 1] = g;
+                                buffer[woffset + 2] = b;
+                            }
+                        }
+                    })
+                    .unwrap();
     }
 
     pub fn present(&mut self) {
-        self.copy_back_buffer_to_texture();
+        Device::copy_bitmap_to_texture(&self.depth_buffer, &mut self.texture);
+        //    	Device::copy_bitmap_to_texture(&self.back_buffer, &mut self.texture);
         self.renderer.copy(&self.texture, None, None);
         self.renderer.present();
     }

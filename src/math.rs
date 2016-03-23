@@ -1,4 +1,4 @@
-trait Clamp {
+pub trait Clamp {
 	fn clamp(self, low: Self, high: Self) -> Self;
 }
 
