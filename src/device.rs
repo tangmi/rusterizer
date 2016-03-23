@@ -2,6 +2,7 @@ extern crate sdl2;
 extern crate cgmath;
 
 use std::mem;
+use std::f64;
 
 use camera::Camera;
 use mesh::Mesh;
@@ -29,8 +30,9 @@ pub struct Device<'a> {
     // video_subsystem: VideoSubsystem,
     // window: Window,
     renderer: Renderer<'a>,
-    back_buffer: Texture,
-    bitmap: Bitmap<Rgb24>,
+    texture: Texture,
+    back_buffer: Bitmap<Rgb24>,
+    depth_buffer: Bitmap<f64>,
     event_pump: EventPump,
 }
 
@@ -52,15 +54,16 @@ impl<'a> Device<'a> {
 
         let renderer = window.renderer().build().unwrap();
 
-        let back_buffer = renderer.create_texture_streaming(PixelFormatEnum::RGB24, width, height)
+        let texture = renderer.create_texture_streaming(PixelFormatEnum::RGB24, width, height)
                                   .unwrap();
 
         let event_pump = sdl_context.event_pump().unwrap();
 
         Device {
             renderer: renderer,
-            back_buffer: back_buffer,
-            bitmap: Bitmap::new(width, height),
+            texture: texture,
+            back_buffer: Bitmap::new(width, height),
+            depth_buffer: Bitmap::new(width, height),
             event_pump: event_pump,
         }
     }
@@ -77,33 +80,9 @@ impl<'a> Device<'a> {
         EventPumpAction::Continue
     }
 
-    fn copy_bitmap_to_back_buffer(&mut self) {
-        let slice = self.bitmap.slice();
-        let pixel_width = self.bitmap.pixel_width();
-
-        let width = self.bitmap.width();
-        let height = self.bitmap.height();
-
-        self.back_buffer
-            .with_lock(None, |buffer: &mut [u8], _: usize| {
-                for y in 0..height {
-                    for x in 0..width {
-                        let offset = (y * width + x) as usize;
-                        let woffset = offset * pixel_width;
-                        let rgb24 = slice[offset];
-
-                        buffer[woffset + 0] = rgb24.r;
-                        buffer[woffset + 1] = rgb24.g;
-                        buffer[woffset + 2] = rgb24.b;
-                    }
-                }
-            })
-            .unwrap();
-    }
-
     fn draw_point(&mut self, point: Vector2<u32>, color: Color) {
-        if point.x < self.bitmap.width() && point.y < self.bitmap.height() {
-            self.bitmap.set_pixel(point, Rgb24::from(color));
+        if point.x < self.back_buffer.width() && point.y < self.back_buffer.height() {
+            self.back_buffer.set_pixel(point, Rgb24::from(color));
         }
     }
 
@@ -111,8 +90,8 @@ impl<'a> Device<'a> {
         let view_mat = Matrix4::look_at(cam.position, cam.target, Vector3::unit_y());
 
         let projection_mat = cgmath::perspective(cgmath::rad(0.78),
-                                                 (self.bitmap.width() as f64) /
-                                                 (self.bitmap.height() as f64),
+                                                 (self.back_buffer.width() as f64) /
+                                                 (self.back_buffer.height() as f64),
                                                  0.01,
                                                  1.0);
 
@@ -143,6 +122,20 @@ impl<'a> Device<'a> {
         }
     }
 
+    fn sort_points(p1: &mut Vector3<f64>, p2: &mut Vector3<f64>, p3: &mut Vector3<f64>) {
+        if p1.y > p2.y {
+            mem::swap(p1, p2);
+        }
+
+        if p2.y > p3.y {
+            mem::swap(p2, p3);
+        }
+
+        if p1.y > p2.y {
+            mem::swap(p1, p2);
+        }
+    }
+
     fn draw_triangle(&mut self,
                      p1: Vector3<f64>,
                      p2: Vector3<f64>,
@@ -151,18 +144,7 @@ impl<'a> Device<'a> {
         let mut p1 = p1;
         let mut p2 = p2;
         let mut p3 = p3;
-
-        if p1.y > p2.y {
-            mem::swap(&mut p1, &mut p2);
-        }
-
-        if p2.y > p3.y {
-            mem::swap(&mut p2, &mut p3);
-        }
-
-        if p1.y > p2.y {
-            mem::swap(&mut p1, &mut p2);
-        }
+        Device::sort_points(&mut p1, &mut p2, &mut p3);
 
         // inverse slopes
         let dinv_p1p2 = if p2.y - p1.y > 0.0 {
@@ -255,8 +237,8 @@ impl<'a> Device<'a> {
     fn project(&self, vertex: Vector3<f64>, mat: Matrix4<f64>) -> Vector3<f64> {
         let point = mat * vertex.extend(1.0);
 
-        let width = self.bitmap.width() as f64;
-        let height = self.bitmap.height() as f64;
+        let width = self.back_buffer.width() as f64;
+        let height = self.back_buffer.height() as f64;
 
         // println!("y coord = {}", -point.y * height + height / 2.0);
 
@@ -266,12 +248,37 @@ impl<'a> Device<'a> {
     }
 
     pub fn clear(&mut self, color: Color) {
-        self.bitmap.clear(Rgb24::from(color));
+        self.back_buffer.clear(Rgb24::from(color));
+        self.depth_buffer.clear(f64::MAX);
+    }
+
+    fn copy_back_buffer_to_texture(&mut self) {
+        let slice = self.back_buffer.slice();
+        let pixel_width = self.back_buffer.pixel_width();
+
+        let width = self.back_buffer.width();
+        let height = self.back_buffer.height();
+
+        self.texture
+            .with_lock(None, |buffer: &mut [u8], _: usize| {
+                for y in 0..height {
+                    for x in 0..width {
+                        let offset = (y * width + x) as usize;
+                        let woffset = offset * pixel_width;
+                        let rgb24 = slice[offset];
+
+                        buffer[woffset + 0] = rgb24.r;
+                        buffer[woffset + 1] = rgb24.g;
+                        buffer[woffset + 2] = rgb24.b;
+                    }
+                }
+            })
+            .unwrap();
     }
 
     pub fn present(&mut self) {
-        self.copy_bitmap_to_back_buffer();
-        self.renderer.copy(&self.back_buffer, None, None);
+        self.copy_back_buffer_to_texture();
+        self.renderer.copy(&self.texture, None, None);
         self.renderer.present();
     }
 }
