@@ -58,4 +58,9 @@ impl<T> Bitmap<T>
         let offset = (point.y * self.width + point.x) as usize;
         self.buffer[offset] = t;
     }
+    
+    pub fn get_pixel(&self, point: Vector2<u32>) -> T {
+    	let offset = (point.y * self.width + point.x) as usize;
+        self.buffer[offset]
+    }
 }

@@ -55,7 +55,7 @@ impl<'a> Device<'a> {
         let renderer = window.renderer().build().unwrap();
 
         let texture = renderer.create_texture_streaming(PixelFormatEnum::RGB24, width, height)
-                                  .unwrap();
+                              .unwrap();
 
         let event_pump = sdl_context.event_pump().unwrap();
 
@@ -80,10 +80,24 @@ impl<'a> Device<'a> {
         EventPumpAction::Continue
     }
 
-    fn draw_point(&mut self, point: Vector2<u32>, color: Color) {
+    fn draw_point(&mut self, point: Vector3<f64>, color: Color) {
+        let z = point.z;
+        let point: Vector2<u32> = point.truncate().cast();
+
         if point.x < self.back_buffer.width() && point.y < self.back_buffer.height() {
-            self.back_buffer.set_pixel(point, Rgb24::from(color));
+            self.set_pixel(point, z, color);
         }
+    }
+
+    fn set_pixel(&mut self, point: Vector2<u32>, z: f64, color: Color) {
+        // if point.x < self.back_buffer.width() && point.y < self.back_buffer.height() {
+        if self.depth_buffer.get_pixel(point) < z {
+            return;
+        }
+
+        self.depth_buffer.set_pixel(point, z);
+        self.back_buffer.set_pixel(point, Rgb24::from(color));
+        // }
     }
 
     pub fn render(&mut self, cam: &Camera, meshes: Vec<&Mesh>) {
@@ -106,17 +120,16 @@ impl<'a> Device<'a> {
             let faces_count = mesh.faces.len();
 
             for (i, face) in mesh.faces.iter().enumerate() {
-                let vert_a = mesh.vertices[face.a];
-                let vert_b = mesh.vertices[face.b];
-                let vert_c = mesh.vertices[face.c];
+                let color = {
+                    let color_val = 0.25 + (i % faces_count) as f64 * 0.75 / faces_count as f64;
+                    let color_val_u8 = (color_val * 255.0) as u8;
+                    Color::RGB(color_val_u8, 255 - color_val_u8, 0)
+                };
 
-                let pixel_a = self.project(vert_a, mat);
-                let pixel_b = self.project(vert_b, mat);
-                let pixel_c = self.project(vert_c, mat);
+                let pixel_a = self.project(mesh.vertices[face.a], mat);
+                let pixel_b = self.project(mesh.vertices[face.b], mat);
+                let pixel_c = self.project(mesh.vertices[face.c], mat);
 
-                let color_val = 0.25 + (i % faces_count) as f64 * 0.75 / faces_count as f64;
-                let color_val_u8 = (color_val * 255.0) as u8;
-                let color = Color::RGB(color_val_u8, color_val_u8, color_val_u8);
                 self.draw_triangle(pixel_a, pixel_b, pixel_c, color);
             }
         }
@@ -212,25 +225,30 @@ impl<'a> Device<'a> {
                          color: Color) {
         let y = y as f64;
 
-        let sx = f64::interpolate(pa.x,
-                                  pb.x,
-                                  if pa.y != pb.y {
-                                      (y - pa.y) / (pb.y - pa.y)
-                                  } else {
-                                      1.0
-                                  }) as i32;
+        let grad1 = if pa.y != pb.y {
+            (y - pa.y) / (pb.y - pa.y)
+        } else {
+            1.0
+        };
 
-        let ex = f64::interpolate(pc.x,
-                                  pd.x,
-                                  if pc.y != pd.y {
-                                      (y - pc.y) / (pd.y - pc.y)
-                                  } else {
-                                      1.0
-                                  }) as i32;
+        let grad2 = if pc.y != pd.y {
+            (y - pc.y) / (pd.y - pc.y)
+        } else {
+            1.0
+        };
 
-        let y = y as u32;
+        let sx = f64::interpolate(pa.x, pb.x, grad1) as i32;
+        let ex = f64::interpolate(pc.x, pd.x, grad2) as i32;
+
+        // starting Z & ending Z
+        let z1 = f64::interpolate(pa.z, pb.z, grad1);
+        let z2 = f64::interpolate(pc.z, pd.z, grad2);
+
         for x in sx..ex {
-            self.draw_point(Vector2::new(x as u32, y), color);
+            let grad = (x - sx) as f64 / (ex - sx) as f64;
+            let z = f64::interpolate(z1, z2, grad);
+
+            self.draw_point(Vector3::new(x as f64, y, z), color);
         }
     }
 
