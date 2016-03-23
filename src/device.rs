@@ -1,10 +1,13 @@
 extern crate sdl2;
 extern crate cgmath;
 
+use std::mem;
+
 use camera::Camera;
 use mesh::Mesh;
 use bitmap::Bitmap;
 use bitmap::pixel_format::Rgb24;
+use math::Interpolate;
 
 use sdl2::pixels::Color;
 use sdl2::event::Event;
@@ -14,7 +17,6 @@ use sdl2::render::Renderer;
 use sdl2::render::Texture;
 use sdl2::EventPump;
 
-use cgmath::EuclideanVector;
 use cgmath::Vector2;
 use cgmath::Vector3;
 use cgmath::Matrix3;
@@ -78,86 +80,31 @@ impl<'a> Device<'a> {
     fn copy_bitmap_to_back_buffer(&mut self) {
         let slice = self.bitmap.slice();
         let pixel_width = self.bitmap.pixel_width();
-        
+
         let width = self.bitmap.width();
         let height = self.bitmap.height();
-        
+
         self.back_buffer
             .with_lock(None, |buffer: &mut [u8], _: usize| {
-        		for y in 0..height {
-        			for x in 0..width {
-        				let offset = (y * width + x) as usize;
-        				let woffset = offset * pixel_width;
-        				let rgb24 = slice[offset];
-        				
-        				buffer[woffset + 0] = rgb24.r;
-        				buffer[woffset + 1] = rgb24.g;
-        				buffer[woffset + 2] = rgb24.b;
-        			}
-        		}
+                for y in 0..height {
+                    for x in 0..width {
+                        let offset = (y * width + x) as usize;
+                        let woffset = offset * pixel_width;
+                        let rgb24 = slice[offset];
+
+                        buffer[woffset + 0] = rgb24.r;
+                        buffer[woffset + 1] = rgb24.g;
+                        buffer[woffset + 2] = rgb24.b;
+                    }
+                }
             })
             .unwrap();
     }
 
-    fn draw_point(&mut self, point: Vector2<u32>) {
+    fn draw_point(&mut self, point: Vector2<u32>, color: Color) {
         if point.x < self.bitmap.width() && point.y < self.bitmap.height() {
-            self.bitmap.set_pixel(point, Rgb24::from(Color::RGB(255, 255, 0)));
+            self.bitmap.set_pixel(point, Rgb24::from(color));
         }
-    }
-
-    /// draw a line with Bresenham's algorithm
-    fn draw_bline(&mut self, point0: Vector2<f32>, point1: Vector2<f32>) {
-        let mut x0 = point0.x as i32;
-        let mut y0 = point0.y as i32;
-
-        let x1 = point1.x as i32;
-        let y1 = point1.y as i32;
-
-        let dx = (x1 - x0).abs();
-        let dy = (y1 - y0).abs();
-
-        let sx = (x1 - x0).signum();
-        let sy = (y1 - y0).signum();
-
-        let mut err = dx - dy;
-
-        loop {
-            self.draw_point(Vector2::new(x0, y0).cast());
-
-            if (x0 == x1) && (y0 == y1) {
-                return;
-            }
-
-            let err_2 = 2 * err;
-
-            if err_2 > -dy {
-                err -= dy;
-                x0 += sx;
-            }
-
-            if err_2 < dx {
-                err += dx;
-                y0 += sy;
-            }
-        }
-    }
-
-    #[allow(dead_code)]
-    /// recursive draw line
-    fn draw_line(&mut self, point1: Vector2<f32>, point2: Vector2<f32>) {
-        let diff = point2 - point1;
-        let dist = diff.length();
-
-        if dist < 2.0 {
-            return;
-        }
-
-        let midpoint = point1 + diff / 2.0;
-
-        self.draw_point(midpoint.cast());
-
-        self.draw_line(point1, midpoint);
-        self.draw_line(midpoint, point2);
     }
 
     pub fn render(&mut self, cam: &Camera, meshes: Vec<&Mesh>) {
@@ -177,39 +124,135 @@ impl<'a> Device<'a> {
 
             let mat = projection_mat * view_mat * world_mat;
 
-            for face in &mesh.faces {
+            let faces_count = mesh.faces.len();
+
+            for (i, face) in mesh.faces.iter().enumerate() {
                 let vert_a = mesh.vertices[face.a];
                 let vert_b = mesh.vertices[face.b];
                 let vert_c = mesh.vertices[face.c];
 
-                let pixel_a = self.project(vert_a, mat).cast();
-                let pixel_b = self.project(vert_b, mat).cast();
-                let pixel_c = self.project(vert_c, mat).cast();
+                let pixel_a = self.project(vert_a, mat);
+                let pixel_b = self.project(vert_b, mat);
+                let pixel_c = self.project(vert_c, mat);
 
-                self.draw_bline(pixel_a, pixel_b);
-                self.draw_bline(pixel_b, pixel_c);
-                self.draw_bline(pixel_c, pixel_a);
+                let color_val = 0.25 + (i % faces_count) as f64 * 0.75 / faces_count as f64;
+                let color_val_u8 = (color_val * 255.0) as u8;
+                let color = Color::RGB(color_val_u8, color_val_u8, color_val_u8);
+                self.draw_triangle(pixel_a, pixel_b, pixel_c, color);
             }
         }
     }
 
-    fn draw_triangle(p1: Vector3<f64>, p2: Vector3<f64>, p3: Vector3<f64>, color: Color) {
-        unimplemented!();
+    fn draw_triangle(&mut self,
+                     p1: Vector3<f64>,
+                     p2: Vector3<f64>,
+                     p3: Vector3<f64>,
+                     color: Color) {
+        let mut p1 = p1;
+        let mut p2 = p2;
+        let mut p3 = p3;
+
+        if p1.y > p2.y {
+            mem::swap(&mut p1, &mut p2);
+        }
+
+        if p2.y > p3.y {
+            mem::swap(&mut p2, &mut p3);
+        }
+
+        if p1.y > p2.y {
+            mem::swap(&mut p1, &mut p2);
+        }
+
+        // inverse slopes
+        let dinv_p1p2 = if p2.y - p1.y > 0.0 {
+            (p2.x - p1.x) / (p2.y - p1.y)
+        } else {
+            0.0
+        };
+
+        let dinv_p1p3 = if p3.y - p1.y > 0.0 {
+            (p3.x - p1.x) / (p3.y - p1.y)
+        } else {
+            0.0
+        };
+
+        if dinv_p1p2 > dinv_p1p3 {
+            // First case where triangles are like that:
+            // P1
+            // -
+            // --
+            // - -
+            // -  -
+            // -   - P2
+            // -  -
+            // - -
+            // -
+            // P3
+            for y in (p1.y as u32)..(p3.y as u32 + 1) {
+                if (y as f64) < p2.y {
+                    self.process_scan_line(y, p1, p3, p1, p2, color);
+                } else {
+                    self.process_scan_line(y, p1, p3, p2, p3, color);
+                }
+            }
+        } else {
+            // First case where triangles are like that:
+            //       P1
+            //        -
+            //       --
+            //      - -
+            //     -  -
+            // P2 -   -
+            //     -  -
+            //      - -
+            //        -
+            //       P3
+            for y in (p1.y as u32)..(p3.y as u32 + 1) {
+                if (y as f64) < p2.y {
+                    self.process_scan_line(y, p1, p2, p1, p3, color);
+                } else {
+                    self.process_scan_line(y, p2, p3, p1, p3, color);
+                }
+            }
+        }
     }
 
     /// drawing line between 2 points from left to right
     /// papb -> pcpd
     /// pa, pb, pc, pd must then be sorted before
-    fn process_scan_line(y: u32,
+    fn process_scan_line(&mut self,
+                         y: u32,
                          pa: Vector3<f64>,
                          pb: Vector3<f64>,
                          pc: Vector3<f64>,
                          pd: Vector3<f64>,
                          color: Color) {
-        unimplemented!();
+        let y = y as f64;
+
+        let sx = f64::interpolate(pa.x,
+                                  pb.x,
+                                  if pa.y != pb.y {
+                                      (y - pa.y) / (pb.y - pa.y)
+                                  } else {
+                                      1.0
+                                  }) as i32;
+
+        let ex = f64::interpolate(pc.x,
+                                  pd.x,
+                                  if pc.y != pd.y {
+                                      (y - pc.y) / (pd.y - pc.y)
+                                  } else {
+                                      1.0
+                                  }) as i32;
+
+        let y = y as u32;
+        for x in sx..ex {
+            self.draw_point(Vector2::new(x as u32, y), color);
+        }
     }
 
-    fn project(&self, vertex: Vector3<f64>, mat: Matrix4<f64>) -> Vector2<u32> {
+    fn project(&self, vertex: Vector3<f64>, mat: Matrix4<f64>) -> Vector3<f64> {
         let point = mat * vertex.extend(1.0);
 
         let width = self.bitmap.width() as f64;
@@ -217,8 +260,9 @@ impl<'a> Device<'a> {
 
         // println!("y coord = {}", -point.y * height + height / 2.0);
 
-        Vector2::new((point.x * width + width / 2.0) as u32,
-                     (-point.y * height + height / 2.0) as u32)
+        Vector3::new(point.x * width + width / 2.0,
+                     -point.y * height + height / 2.0,
+                     point.z)
     }
 
     pub fn clear(&mut self, color: Color) {

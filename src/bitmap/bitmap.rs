@@ -8,7 +8,9 @@ pub struct Bitmap<T> {
     height: u32,
 }
 
-impl<T> Bitmap<T> where T: Default + Copy {
+impl<T> Bitmap<T>
+    where T: Default + Copy
+{
     pub fn new(width: u32, height: u32) -> Bitmap<T> {
         let size = mem::size_of::<T>();
         let len = (width * height * size as u32) as usize;
@@ -25,7 +27,7 @@ impl<T> Bitmap<T> where T: Default + Copy {
             height: height,
         }
     }
-    
+
     pub fn pixel_width(&self) -> usize {
         self.pixel_width
     }
