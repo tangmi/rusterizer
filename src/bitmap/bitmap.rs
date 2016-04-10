@@ -16,7 +16,7 @@ impl<T> Bitmap<T>
         let mut buffer = Vec::with_capacity(len);
 
         for _ in 0..len {
-            buffer.push(T::default()); // todo(tang): this sucks
+            buffer.push(T::default()); // TODO(tang): this sucks
         }
 
         Bitmap {
@@ -25,6 +25,8 @@ impl<T> Bitmap<T>
             height: height,
         }
     }
+
+
 
     pub fn width(&self) -> u32 {
         self.width
@@ -51,7 +53,7 @@ impl<T> Bitmap<T>
         let offset = (point.y * self.width + point.x) as usize;
         self.buffer[offset] = t;
     }
-    
+
     pub fn get_pixel(&self, point: Vector2<u32>) -> T {
     	let offset = (point.y * self.width + point.x) as usize;
         self.buffer[offset]

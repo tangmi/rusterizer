@@ -5,13 +5,13 @@ use cgmath::Vector3;
 
 use std::vec::Vec;
 
-// todo(tang): should these fields have accessors?
+// TODO(tang): should these fields have accessors?
 pub struct Mesh {
     pub name: &'static str,
     pub vertices: Vec<Vector3<f64>>,
     pub faces: Vec<Face>,
     pub position: Vector3<f64>,
-    pub rotation: Vector3<f64>, // todo: uh...
+    pub rotation: Vector3<f64>, // TODO: uh...
 }
 
 impl Mesh {
