@@ -208,13 +208,23 @@ impl<'a> Device<'a> {
             mem::swap(&mut y0, &mut y1);
         }
 
+        let dx = x1 - x0;
+        let dy = y1 - y0;
+        let sgn_dy = dy.signum();
+        let derr2 = dy.abs() * 2;
+        let mut err2 = 0;
+        let mut y = y0;
         for x in x0..x1 {
-            let t = (x - x0) as f64 / (x1 - x0) as f64;
-            let y = (y0 as f64 * (1.0 - t) + y1 as f64 * t) as i32;
             if steep {
                 self.set_pixel(Vector2::new(y, x).cast(), 0.0, color);
             } else {
                 self.set_pixel(Vector2::new(x, y).cast(), 0.0, color);
+            }
+
+            err2 += derr2;
+            if err2 > dx {
+                y += sgn_dy;
+                err2 -= dx * 2;
             }
         }
     }
