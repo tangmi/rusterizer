@@ -81,17 +81,6 @@ impl<'a> Device<'a> {
         EventPumpAction::Continue
     }
 
-    fn set_pixel(&mut self, point: Vector2<u32>, z: f64, color: Color) {
-        // if point.x < self.back_buffer.width() && point.y < self.back_buffer.height() {
-        if self.depth_buffer.get_pixel(point) < z {
-            return;
-        }
-
-        self.depth_buffer.set_pixel(point, z);
-        self.back_buffer.set_pixel(point, Rgb24::from(color));
-        // }
-    }
-
     pub fn render(&mut self, cam: &Camera, meshes: Vec<&Mesh>) {
         let view_mat = Matrix4::look_at(cam.position, cam.target, Vector3::unit_y());
 
@@ -122,11 +111,19 @@ impl<'a> Device<'a> {
                 let pixel_b = self.project(mesh.vertices[face.b], mat);
                 let pixel_c = self.project(mesh.vertices[face.c], mat);
 
-                self.draw_triangle(pixel_a, pixel_b, pixel_c, color);
+
+                let p0 = Vector2::new(pixel_a.x, pixel_a.y).cast();
+                let p1 = Vector2::new(pixel_b.x, pixel_b.y).cast();
+                let p2 = Vector2::new(pixel_c.x, pixel_c.y).cast();
+                self.draw_line(p0, p1, color);
+                self.draw_line(p1, p2, color);
+                self.draw_line(p2, p0, color);
+
+                // self.draw_triangle(pixel_a, pixel_b, pixel_c, color);
             }
         }
     }
-    
+
     pub fn clear(&mut self, color: Color) {
         self.back_buffer.clear(Rgb24::from(color));
         self.depth_buffer.clear(f64::MAX);
@@ -161,4 +158,65 @@ impl<'a> Device<'a> {
         self.renderer.copy(&self.texture, None, None);
         self.renderer.present();
     }
+
+    fn project(&self, vertex: Vector3<f64>, mat: Matrix4<f64>) -> Vector3<f64> {
+        let point = mat * vertex.extend(1.0);
+
+        let width = self.back_buffer.width() as f64;
+        let height = self.back_buffer.height() as f64;
+
+        Vector3::new(point.x * width + width / 2.0,
+                     -point.y * height + height / 2.0,
+                     point.z)
+    }
+
+
+
+
+    fn set_pixel(&mut self, point: Vector2<u32>, z: f64, color: Color) {
+        // if point.x < self.back_buffer.width() && point.y < self.back_buffer.height() {
+        if self.depth_buffer.get_pixel(point) < z {
+            return;
+        }
+
+        self.depth_buffer.set_pixel(point, z);
+        self.back_buffer.set_pixel(point, Rgb24::from(color));
+        // }
+    }
+
+    /// taken from https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
+    fn draw_line(&mut self, pt0: Vector2<u32>, pt1: Vector2<u32>, color: Color) {
+        let mut x0 = pt0.x as i32;
+        let mut y0 = pt0.y as i32;
+        let mut x1 = pt1.x as i32;
+        let mut y1 = pt1.y as i32;
+
+        let steep = {
+            if (x0 - x1).abs() < (y0 - y1).abs() {
+                // if the line is steep, transpose image
+                mem::swap(&mut x0, &mut y0);
+                mem::swap(&mut x1, &mut y1);
+                true
+            } else {
+                false
+            }
+        };
+
+        if x0 > x1 {
+            // make it so our algorithm goes left to right always
+            mem::swap(&mut x0, &mut x1);
+            mem::swap(&mut y0, &mut y1);
+        }
+
+        for x in x0..x1 {
+            let t = (x - x0) as f64 / (x1 - x0) as f64;
+            let y = (y0 as f64 * (1.0 - t) + y1 as f64 * t) as i32;
+            if steep {
+                self.set_pixel(Vector2::new(y, x).cast(), 0.0, color);
+            } else {
+                self.set_pixel(Vector2::new(x, y).cast(), 0.0, color);
+            }
+        }
+    }
+
 }
