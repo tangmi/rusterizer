@@ -100,12 +100,16 @@ impl<'a> Device<'a> {
 
             let faces_count = mesh.faces.len();
 
+            println!("vertices = {:?}", mesh.vertices.len());
+            println!("faces = {:?}", mesh.faces.len());
+
             for (i, face) in mesh.faces.iter().enumerate() {
-                let color = {
-                    let color_val = 0.25 + (i % faces_count) as f64 * 0.75 / faces_count as f64;
-                    let color_val_u8 = (color_val * 255.0) as u8;
-                    Color::RGB(color_val_u8, 255 - color_val_u8, 0)
-                };
+                // let color = {
+                //     let color_val = 0.25 + (i % faces_count) as f64 * 0.75 / faces_count as f64;
+                //     let color_val_u8 = (color_val * 255.0) as u8;
+                //     Color::RGB(color_val_u8, 255 - color_val_u8, 0)
+                // };
+                let color = Color::RGB(255, 255, 255);
 
                 let pixel_a = self.project(mesh.vertices[face.a], mat);
                 let pixel_b = self.project(mesh.vertices[face.b], mat);
@@ -173,19 +177,25 @@ impl<'a> Device<'a> {
 
 
 
-    fn set_pixel(&mut self, point: Vector2<u32>, z: f64, color: Color) {
-        // if point.x < self.back_buffer.width() && point.y < self.back_buffer.height() {
-        if self.depth_buffer.get_pixel(point) < z {
-            return;
-        }
+    fn set_pixel(&mut self, point: Vector2<i32>, z: f64, color: Color) {
+        if point.x < self.back_buffer.width() as i32
+            && point.x >= 0
+            && point.y < self.back_buffer.height() as i32
+            && point.y >= 0 {
 
-        self.depth_buffer.set_pixel(point, z);
-        self.back_buffer.set_pixel(point, Rgb24::from(color));
-        // }
+            let upoint = point.cast();
+
+            if self.depth_buffer.get_pixel(upoint) < z {
+                return;
+            }
+
+            self.depth_buffer.set_pixel(upoint, z);
+            self.back_buffer.set_pixel(upoint, Rgb24::from(color));
+        }
     }
 
     /// taken from https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
-    fn draw_line(&mut self, pt0: Vector2<u32>, pt1: Vector2<u32>, color: Color) {
+    fn draw_line(&mut self, pt0: Vector2<i32>, pt1: Vector2<i32>, color: Color) {
         let mut x0 = pt0.x as i32;
         let mut y0 = pt0.y as i32;
         let mut x1 = pt1.x as i32;
@@ -216,9 +226,9 @@ impl<'a> Device<'a> {
         let mut y = y0;
         for x in x0..x1 {
             if steep {
-                self.set_pixel(Vector2::new(y, x).cast(), 0.0, color);
+                self.set_pixel(Vector2::new(y, x), 0.0, color);
             } else {
-                self.set_pixel(Vector2::new(x, y).cast(), 0.0, color);
+                self.set_pixel(Vector2::new(x, y), 0.0, color);
             }
 
             err2 += derr2;

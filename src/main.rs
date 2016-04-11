@@ -10,6 +10,7 @@ mod device;
 mod camera;
 mod mesh;
 mod math;
+mod obj_importer;
 
 use device::{Device, EventPumpAction};
 use camera::Camera;
@@ -31,6 +32,8 @@ fn main() {
     let mut ticks = 0;
 
     let cam = Camera::new();
+
+    let mut mesh_head = obj_importer::import_file("./obj/african_head.obj").ok().unwrap();
 
     let mut mesh_cube = Mesh::new("cube",
                                   vec![Vector3::new(-0.1, 0.1, 0.1),
@@ -88,16 +91,16 @@ fn main() {
         }
 
         let old_rotation = mesh_cube.rotation;
-        mesh_cube.set_rotation(Vector3::new(old_rotation.x + 0.01,
-                                            old_rotation.y + 0.01,
-                                            old_rotation.z));
-
-        mesh_cube2.set_rotation(Vector3::new(old_rotation.x + 0.01,
-                                             old_rotation.y + 0.01,
-                                             old_rotation.z));
+        // mesh_cube.set_rotation(Vector3::new(old_rotation.x + 0.01,
+        //                                     old_rotation.y + 0.01,
+        //                                     old_rotation.z));
+        //
+        // mesh_cube2.set_rotation(Vector3::new(old_rotation.x + 0.01,
+        //                                      old_rotation.y + 0.01,
+        //                                      old_rotation.z));
 
         device.clear(Color::RGB(0, 0, 128));
-        device.render(&cam, vec![&mesh_cube]);
+        device.render(&cam, vec![&mesh_head]);
 //        device.render(&cam, vec![&mesh_cube, &mesh_cube2]);
         device.present();
 

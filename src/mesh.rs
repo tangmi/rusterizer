@@ -6,8 +6,9 @@ use cgmath::Vector3;
 use std::vec::Vec;
 
 // TODO(tang): should these fields have accessors?
+#[derive(Debug)]
 pub struct Mesh {
-    pub name: &'static str,
+    pub name: String,
     pub vertices: Vec<Vector3<f64>>,
     pub faces: Vec<Face>,
     pub position: Vector3<f64>,
@@ -15,9 +16,9 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(name: &'static str, verts: Vec<Vector3<f64>>, faces: Vec<Face>) -> Mesh {
+    pub fn new(name: &str, verts: Vec<Vector3<f64>>, faces: Vec<Face>) -> Mesh {
         Mesh {
-            name: name,
+            name: name.to_owned(),
             vertices: verts,
             faces: faces,
             position: Vector3::zero(),
@@ -34,10 +35,13 @@ impl Mesh {
     }
 }
 
+#[derive(Debug)]
 pub struct Face {
     pub a: usize,
     pub b: usize,
     pub c: usize,
+    // TODO: add texture coordinates
+    // TODO: add normals
 }
 
 impl Face {
