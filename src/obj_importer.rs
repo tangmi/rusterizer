@@ -68,10 +68,9 @@ fn parse_line(line: String) -> Option<ObjLine> {
                 }
             }).collect();
 
-
             // TODO: 1-index, add texture coordinates, normals
             if indices.len() == 3 {
-                let face = Face::new(indices[0], indices[1], indices[2]);
+                let face = Face::new(indices[0] - 1, indices[1] - 1, indices[2] - 1);
                 // println!("f {:?}", face);
                 Some(ObjLine::F(face))
             } else {
