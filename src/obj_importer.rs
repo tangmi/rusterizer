@@ -61,6 +61,7 @@ fn parse_line(line: String) -> Option<ObjLine> {
         },
         Some("f") => {
             let indices : Vec<usize> = iter.filter_map(|s| {
+                // is there a better way to do this?
                 let mut indices = s.split("/");
                 match indices.next() {
                     Some(s) => s.parse().ok(),

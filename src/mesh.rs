@@ -12,7 +12,7 @@ pub struct Mesh {
     pub vertices: Vec<Vector3<f64>>,
     pub faces: Vec<Face>,
     pub position: Vector3<f64>,
-    pub rotation: Vector3<f64>, // TODO: uh...
+    pub rotation: Vector3<f64>, // TODO: consider using quaternions here
 }
 
 impl Mesh {

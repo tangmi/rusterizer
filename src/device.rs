@@ -157,8 +157,8 @@ impl<'a> Device<'a> {
     }
 
     pub fn present(&mut self) {
-        Device::copy_bitmap_to_texture(&self.depth_buffer, &mut self.texture);
-        //    	Device::copy_bitmap_to_texture(&self.back_buffer, &mut self.texture);
+        // Device::copy_bitmap_to_texture(&self.depth_buffer, &mut self.texture);
+        Device::copy_bitmap_to_texture(&self.back_buffer, &mut self.texture);
         self.renderer.copy(&self.texture, None, None);
         self.renderer.present();
     }
@@ -173,6 +173,25 @@ impl<'a> Device<'a> {
                      -point.y * height + height / 2.0,
                      point.z)
     }
+
+
+
+
+
+
+
+    pub fn test_draw_triangles(&mut self) {
+        let vec1 = vec!{Vector2::new(10, 70),   Vector2::new(50, 160),  Vector2::new(70, 80)};
+        self.draw_triangle(vec1[0], vec1[1], vec1[2], Color::RGB(255, 0, 0));
+
+        let vec2 = vec!{Vector2::new(180, 50),  Vector2::new(150, 1),   Vector2::new(70, 180)};
+        self.draw_triangle(vec2[0], vec2[1], vec2[2], Color::RGB(255, 255, 255));
+
+        let vec3 = vec!{Vector2::new(180, 150), Vector2::new(120, 160), Vector2::new(130, 180)};
+        self.draw_triangle(vec3[0], vec3[1], vec3[2], Color::RGB(0, 255, 0));
+    }
+
+
 
 
 
@@ -239,4 +258,48 @@ impl<'a> Device<'a> {
         }
     }
 
+    fn draw_triangle(&mut self, pt0: Vector2<i32>, pt1: Vector2<i32>, pt2: Vector2<i32>, color: Color)
+    {
+        // 1. Sort vertices of the triangle by their y-coordinates;
+        // 2. Rasterize simultaneously the left and the right sides of the triangle;
+        // 3. Draw a horizontal line segment between the left and the right boundary points.
+
+        // sort the points by y value
+        let mut pt1 = pt1;
+        let mut pt2 = pt2;
+        let mut pt0 = pt0;
+        if pt0.y > pt2.y {
+            mem::swap(&mut pt0, &mut pt2);
+        }
+        if pt1.y > pt2.y {
+            mem::swap(&mut pt1, &mut pt2);
+        }
+        if pt0.y > pt1.y {
+            mem::swap(&mut pt0, &mut pt1);
+        }
+
+
+        // now we need to sort by x value?
+        if pt0.x > pt1.x {
+            //    pt0
+            // pt1  |
+            //    pt2
+            self.draw_line(pt0, pt1, Color::RGB(0, 0, 255));
+            self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
+            self.draw_line(pt2, pt0, Color::RGB(255, 0, 255));
+        } else {
+            // pt0
+            // |  pt1
+            // pt2
+
+            self.draw_line(pt0, pt1, Color::RGB(255, 0, 0));
+            self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
+            self.draw_line(pt2, pt0, Color::RGB(0, 0, 255));
+        }
+
+
+
+
+
+    }
 }

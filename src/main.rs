@@ -90,7 +90,7 @@ fn main() {
             EventPumpAction::Continue => {}
         }
 
-        let old_rotation = mesh_cube.rotation;
+        // let old_rotation = mesh_cube.rotation;
         // mesh_cube.set_rotation(Vector3::new(old_rotation.x + 0.01,
         //                                     old_rotation.y + 0.01,
         //                                     old_rotation.z));
@@ -98,9 +98,13 @@ fn main() {
         // mesh_cube2.set_rotation(Vector3::new(old_rotation.x + 0.01,
         //                                      old_rotation.y + 0.01,
         //                                      old_rotation.z));
+        // mesh_head.set_rotation(Vector3::new(old_rotation.x + 0.01,
+        //                                     old_rotation.y + 0.01,
+        //                                     old_rotation.z));
 
         device.clear(Color::RGB(0, 0, 128));
-        device.render(&cam, vec![&mesh_head]);
+        // device.render(&cam, vec![&mesh_head]);
+        device.test_draw_triangles();
 //        device.render(&cam, vec![&mesh_cube, &mesh_cube2]);
         device.present();
 
