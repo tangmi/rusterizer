@@ -279,11 +279,24 @@ impl<'a> Device<'a> {
         }
 
 
-        // now we need to sort by x value?
-        if pt0.x > pt1.x {
+        // inverse slopes
+        let dinv_pt0pt1 = if pt1.y - pt0.y > 0 {
+            (pt1.x - pt0.x) as f64 / (pt1.y - pt0.y) as f64
+        } else {
+            0.0
+        };
+
+        let dinv_pt0pt2 = if pt2.y - pt0.y > 0 {
+            (pt2.x - pt0.x) as f64 / (pt2.y - pt0.y) as f64
+        } else {
+            0.0
+        };
+
+        if dinv_pt0pt1 < dinv_pt0pt2 {
             //    pt0
             // pt1  |
             //    pt2
+
             self.draw_line(pt0, pt1, Color::RGB(0, 0, 255));
             self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
             self.draw_line(pt2, pt0, Color::RGB(255, 0, 255));
