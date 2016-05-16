@@ -189,6 +189,12 @@ impl<'a> Device<'a> {
 
         let vec3 = vec!{Vector2::new(180, 150), Vector2::new(120, 160), Vector2::new(130, 180)};
         self.draw_triangle(vec3[0], vec3[1], vec3[2], Color::RGB(0, 255, 0));
+
+
+
+
+        let vec0 = vec!{Vector2::new(10, 70),  Vector2::new(5, 120), Vector2::new(50, 160)};
+        self.draw_triangle(vec0[0], vec0[1], vec0[2], Color::RGB(100, 100, 0));
     }
 
 
@@ -297,22 +303,58 @@ impl<'a> Device<'a> {
             // pt1  |
             //    pt2
 
-            self.draw_line(pt0, pt1, Color::RGB(0, 0, 255));
-            self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
-            self.draw_line(pt2, pt0, Color::RGB(255, 0, 255));
+            for y in pt0.y..(pt2.y + 1) {
+                if y < pt1.y {
+                    self.process_scan_line(y, pt0, pt1, pt0, pt2, color);
+                } else {
+                    self.process_scan_line(y, pt1, pt2, pt0, pt2, color);
+                }
+            }
+            // self.draw_line(pt0, pt1, Color::RGB(0, 0, 255));
+            // self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
+            // self.draw_line(pt2, pt0, Color::RGB(255, 0, 255));
         } else {
             // pt0
             // |  pt1
             // pt2
 
-            self.draw_line(pt0, pt1, Color::RGB(255, 0, 0));
-            self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
-            self.draw_line(pt2, pt0, Color::RGB(0, 0, 255));
+            for y in pt0.y..(pt2.y + 1) {
+                if y < pt1.y {
+                    self.process_scan_line(y, pt0, pt2, pt0, pt1, color);
+                } else {
+                    self.process_scan_line(y, pt0, pt2, pt1, pt2, color);
+                }
+            }
+            // self.draw_line(pt0, pt1, Color::RGB(255, 0, 0));
+            // self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
+            // self.draw_line(pt2, pt0, Color::RGB(0, 0, 255));
         }
-
-
-
-
-
     }
+
+    fn process_scan_line(&mut self,
+                         y: i32,
+                         pta: Vector2<i32>,
+                         ptb: Vector2<i32>,
+                         ptc: Vector2<i32>,
+                         ptd: Vector2<i32>,
+                         color: Color) {
+        let left_edge = Device::interp_x_from_y(y, pta, ptb);
+        let right_edge = Device::interp_x_from_y(y, ptc, ptd);
+
+        for x in left_edge..(right_edge + 1) {
+            self.set_pixel(Vector2::new(x, y), 0_f64, color);
+        }
+    }
+
+    ///! gets the x value on the line drawn between pta and ptb at y
+    fn interp_x_from_y(y: i32,
+                       pta: Vector2<i32>,
+                       ptb: Vector2<i32>) -> i32{
+        let grad = if pta.y != ptb.y {
+            (y - pta.y) as f64 / (ptb.y - pta.y) as f64
+        } else {
+            1.0
+        };
+        f64::interpolate(pta.x as f64, ptb.x as f64, grad) as i32
+   }
 }
