@@ -25,6 +25,9 @@ use cgmath::Matrix3;
 use cgmath::Matrix4;
 use cgmath::Rotation3;
 
+use rect::Point;
+use rect::Rect;
+
 // #[derive(Debug)]
 pub struct Device<'a> {
     // sdl_context: Sdl,
@@ -202,7 +205,7 @@ impl<'a> Device<'a> {
 
 
 
-    fn set_pixel(&mut self, point: Vector2<i32>, z: f64, color: Color) {
+    fn set_pixel(&mut self, point: Point, z: f64, color: Color) {
         if point.x < self.back_buffer.width() as i32
             && point.x >= 0
             && point.y < self.back_buffer.height() as i32
@@ -220,7 +223,7 @@ impl<'a> Device<'a> {
     }
 
     /// taken from https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
-    fn draw_line(&mut self, pt0: Vector2<i32>, pt1: Vector2<i32>, color: Color) {
+    fn draw_line(&mut self, pt0: Point, pt1: Point, color: Color) {
         let mut x0 = pt0.x as i32;
         let mut y0 = pt0.y as i32;
         let mut x1 = pt1.x as i32;
@@ -264,97 +267,43 @@ impl<'a> Device<'a> {
         }
     }
 
-    fn draw_triangle(&mut self, pt0: Vector2<i32>, pt1: Vector2<i32>, pt2: Vector2<i32>, color: Color)
+    fn draw_triangle(&mut self, pt0: Point, pt1: Point, pt2: Point, color: Color)
     {
-        // 1. Sort vertices of the triangle by their y-coordinates;
-        // 2. Rasterize simultaneously the left and the right sides of the triangle;
-        // 3. Draw a horizontal line segment between the left and the right boundary points.
-
-        // sort the points by y value
-        let mut pt1 = pt1;
-        let mut pt2 = pt2;
-        let mut pt0 = pt0;
-        if pt0.y > pt2.y {
-            mem::swap(&mut pt0, &mut pt2);
-        }
-        if pt1.y > pt2.y {
-            mem::swap(&mut pt1, &mut pt2);
-        }
-        if pt0.y > pt1.y {
-            mem::swap(&mut pt0, &mut pt1);
-        }
-
-
-        // inverse slopes
-        let dinv_pt0pt1 = if pt1.y - pt0.y > 0 {
-            (pt1.x - pt0.x) as f64 / (pt1.y - pt0.y) as f64
-        } else {
-            0.0
-        };
-
-        let dinv_pt0pt2 = if pt2.y - pt0.y > 0 {
-            (pt2.x - pt0.x) as f64 / (pt2.y - pt0.y) as f64
-        } else {
-            0.0
-        };
-
-        if dinv_pt0pt1 < dinv_pt0pt2 {
-            //    pt0
-            // pt1  |
-            //    pt2
-
-            for y in pt0.y..(pt2.y + 1) {
-                if y < pt1.y {
-                    self.process_scan_line(y, pt0, pt1, pt0, pt2, color);
-                } else {
-                    self.process_scan_line(y, pt1, pt2, pt0, pt2, color);
+        // TODO clip if outside view
+        let pts = vec![pt0, pt1, pt2];
+        let bounds = Rect::from_bounding(&pts);
+        for y in bounds.top..bounds.bottom {
+            for x in bounds.left..bounds.right {
+                let pt = Point::new(x, y);
+                // self.set_pixel(pt, 5_f64, Color::RGB(150, 150, 150));
+                if Device::is_inside_triangle(pt, pt0, pt1, pt2) {
+                    self.set_pixel(pt, 0_f64, color);
                 }
             }
-            // self.draw_line(pt0, pt1, Color::RGB(0, 0, 255));
-            // self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
-            // self.draw_line(pt2, pt0, Color::RGB(255, 0, 255));
-        } else {
-            // pt0
-            // |  pt1
-            // pt2
-
-            for y in pt0.y..(pt2.y + 1) {
-                if y < pt1.y {
-                    self.process_scan_line(y, pt0, pt2, pt0, pt1, color);
-                } else {
-                    self.process_scan_line(y, pt0, pt2, pt1, pt2, color);
-                }
-            }
-            // self.draw_line(pt0, pt1, Color::RGB(255, 0, 0));
-            // self.draw_line(pt1, pt2, Color::RGB(0, 255, 0));
-            // self.draw_line(pt2, pt0, Color::RGB(0, 0, 255));
         }
     }
 
-    fn process_scan_line(&mut self,
-                         y: i32,
-                         pta: Vector2<i32>,
-                         ptb: Vector2<i32>,
-                         ptc: Vector2<i32>,
-                         ptd: Vector2<i32>,
-                         color: Color) {
-        let left_edge = Device::interp_x_from_y(y, pta, ptb);
-        let right_edge = Device::interp_x_from_y(y, ptc, ptd);
+    ///! returns if a point pt is inside a triangle given by pt0, pt1, and pt2
+    fn is_inside_triangle(pt: Point, pt0: Point, pt1: Point, pt2: Point) -> bool {
+        let u = Vector3::new(
+            pt2.x - pt0.x,
+            pt1.x - pt0.x,
+            pt0.x - pt.x
+        ).cross(Vector3::new(
+            pt2.y - pt0.y,
+            pt1.y - pt0.y,
+            pt0.y - pt.y
+        ));
 
-        for x in left_edge..(right_edge + 1) {
-            self.set_pixel(Vector2::new(x, y), 0_f64, color);
-        }
-    }
-
-    ///! gets the x value on the line drawn between pta and ptb at y
-    fn interp_x_from_y(y: i32,
-                       pta: Vector2<i32>,
-                       ptb: Vector2<i32>) -> i32{
-        let grad = if pta.y != ptb.y {
-            (y - pta.y) as f64 / (ptb.y - pta.y) as f64
+        let barycentric = if u.z.abs() < 1 {
+            // triangle is degenerate, in this case return smth with negative coordinates
+            (-1.0, 1.0, 1.0)
         } else {
-            1.0
+            (1.0 - (u.x as f64 + u.y as f64) / u.z as f64,
+             u.y as f64 / u.z as f64,
+             u.x as f64 / u.z as f64)
         };
-        f64::interpolate(pta.x as f64, ptb.x as f64, grad) as i32
-   }
+
+        barycentric.0 >= 0.0 && barycentric.1 >= 0.0 && barycentric.2 >= 0.0
+    }
 }

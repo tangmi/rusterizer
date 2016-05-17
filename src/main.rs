@@ -11,6 +11,7 @@ mod camera;
 mod mesh;
 mod math;
 mod obj_importer;
+mod rect;
 
 use device::{Device, EventPumpAction};
 use camera::Camera;
