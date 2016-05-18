@@ -27,6 +27,7 @@ use cgmath::Matrix4;
 use cgmath::Rotation3;
 use cgmath::BaseNum;
 use cgmath::EuclideanVector;
+use cgmath::Vector;
 
 use rect::Point;
 use rect::Rect;
@@ -90,7 +91,7 @@ impl<'a> Device<'a> {
     pub fn render(&mut self, cam: &Camera, meshes: Vec<&Mesh>) {
         let view_mat = Matrix4::look_at(cam.position, cam.target, Vector3::unit_y());
 
-        let projection_mat = cgmath::perspective(cgmath::rad(0.78),
+        let projection_mat = cgmath::perspective(cgmath::rad(2.0),
                                                  (self.back_buffer.width() as f64) /
                                                  (self.back_buffer.height() as f64),
                                                  0.01,
@@ -115,7 +116,6 @@ impl<'a> Device<'a> {
                 //     let color_val_u8 = (color_val * 255.0) as u8;
                 //     Color::RGB(color_val_u8, 255 - color_val_u8, 0)
                 // };
-                let color = Color::RGB(255, 255, 255);
 
                 let pixel_a = self.project(mesh.vertices[face.a], mat);
                 let pixel_b = self.project(mesh.vertices[face.b], mat);
@@ -131,6 +131,12 @@ impl<'a> Device<'a> {
                 let normal = (mesh.vertices[face.c] - mesh.vertices[face.a])
                     .cross(mesh.vertices[face.b] - mesh.vertices[face.a])
                     .normalize();
+
+                let light_dir = Vector3::new(-1.0, -1.0, -1.0).normalize();
+
+                let intensity = (normal.dot(light_dir) * 255.0) as u8;
+
+                let color = Color::RGB(intensity, intensity, intensity);
 
                 self.draw_triangle(p0, p1, p2, color);
 
