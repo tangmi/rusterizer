@@ -3,6 +3,7 @@ extern crate cgmath;
 
 use std::mem;
 use std::f64;
+use std::cmp;
 
 use camera::Camera;
 use mesh::Mesh;
@@ -24,6 +25,8 @@ use cgmath::Vector3;
 use cgmath::Matrix3;
 use cgmath::Matrix4;
 use cgmath::Rotation3;
+use cgmath::BaseNum;
+use cgmath::EuclideanVector;
 
 use rect::Point;
 use rect::Rect;
@@ -103,8 +106,8 @@ impl<'a> Device<'a> {
 
             let faces_count = mesh.faces.len();
 
-            println!("vertices = {:?}", mesh.vertices.len());
-            println!("faces = {:?}", mesh.faces.len());
+            // println!("vertices = {:?}", mesh.vertices.len());
+            // println!("faces = {:?}", mesh.faces.len());
 
             for (i, face) in mesh.faces.iter().enumerate() {
                 // let color = {
@@ -118,13 +121,18 @@ impl<'a> Device<'a> {
                 let pixel_b = self.project(mesh.vertices[face.b], mat);
                 let pixel_c = self.project(mesh.vertices[face.c], mat);
 
-
                 let p0 = Vector2::new(pixel_a.x, pixel_a.y).cast();
                 let p1 = Vector2::new(pixel_b.x, pixel_b.y).cast();
                 let p2 = Vector2::new(pixel_c.x, pixel_c.y).cast();
-                self.draw_line(p0, p1, color);
-                self.draw_line(p1, p2, color);
-                self.draw_line(p2, p0, color);
+                // self.draw_line(p0, p1, color);
+                // self.draw_line(p1, p2, color);
+                // self.draw_line(p2, p0, color);
+
+                let normal = (mesh.vertices[face.c] - mesh.vertices[face.a])
+                    .cross(mesh.vertices[face.b] - mesh.vertices[face.a])
+                    .normalize();
+
+                self.draw_triangle(p0, p1, p2, color);
 
                 // self.draw_triangle(pixel_a, pixel_b, pixel_c, color);
             }
@@ -169,12 +177,20 @@ impl<'a> Device<'a> {
     fn project(&self, vertex: Vector3<f64>, mat: Matrix4<f64>) -> Vector3<f64> {
         let point = mat * vertex.extend(1.0);
 
-        let width = self.back_buffer.width() as f64;
-        let height = self.back_buffer.height() as f64;
+        let width = self.width() as f64;
+        let height = self.height() as f64;
 
         Vector3::new(point.x * width + width / 2.0,
                      -point.y * height + height / 2.0,
                      point.z)
+    }
+
+    fn width(&self) -> i32 {
+        self.back_buffer.width() as i32
+    }
+
+    fn height(&self) -> i32 {
+        self.back_buffer.height() as i32
     }
 
 
@@ -269,23 +285,28 @@ impl<'a> Device<'a> {
 
     fn draw_triangle(&mut self, pt0: Point, pt1: Point, pt2: Point, color: Color)
     {
-        // TODO clip if outside view
         let pts = vec![pt0, pt1, pt2];
         let bounds = Rect::from_bounding(&pts);
-        for y in bounds.top..bounds.bottom {
-            for x in bounds.left..bounds.right {
-                let pt = Point::new(x, y);
-                // self.set_pixel(pt, 5_f64, Color::RGB(150, 150, 150));
-                if Device::is_inside_triangle(pt, pt0, pt1, pt2) {
-                    self.set_pixel(pt, 0_f64, color);
+        let window_bounds = Rect::new(Point::new(0, 0), Point::new(self.width(), self.height()));
+
+        match bounds.intersect(window_bounds) {
+            Option::Some(clipped) => {
+                for y in clipped.top..clipped.bottom {
+                    for x in clipped.left..clipped.right {
+                        let pt = Point::new(x, y);
+                        if Device::is_inside_triangle(pt, pt0, pt1, pt2) {
+                            self.set_pixel(pt, 0_f64, color);
+                        }
+                    }
                 }
-            }
+            },
+            Option::None => {},
         }
     }
 
     ///! returns if a point pt is inside a triangle given by pt0, pt1, and pt2
     fn is_inside_triangle(pt: Point, pt0: Point, pt1: Point, pt2: Point) -> bool {
-        let u = Vector3::new(
+        let u : Vector3<f64> = Vector3::new(
             pt2.x - pt0.x,
             pt1.x - pt0.x,
             pt0.x - pt.x
@@ -293,15 +314,15 @@ impl<'a> Device<'a> {
             pt2.y - pt0.y,
             pt1.y - pt0.y,
             pt0.y - pt.y
-        ));
+        )).cast();
 
-        let barycentric = if u.z.abs() < 1 {
+        let barycentric = if u.z.abs() < 1.0 {
             // triangle is degenerate, in this case return smth with negative coordinates
             (-1.0, 1.0, 1.0)
         } else {
-            (1.0 - (u.x as f64 + u.y as f64) / u.z as f64,
-             u.y as f64 / u.z as f64,
-             u.x as f64 / u.z as f64)
+            (1.0 - (u.x + u.y) / u.z,
+             u.y / u.z,
+             u.x / u.z)
         };
 
         barycentric.0 >= 0.0 && barycentric.1 >= 0.0 && barycentric.2 >= 0.0

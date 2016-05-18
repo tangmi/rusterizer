@@ -104,9 +104,9 @@ fn main() {
         //                                     old_rotation.z));
 
         device.clear(Color::RGB(0, 0, 128));
-        // device.render(&cam, vec![&mesh_head]);
-        device.test_draw_triangles();
-//        device.render(&cam, vec![&mesh_cube, &mesh_cube2]);
+        device.render(&cam, vec![&mesh_head]);
+        // device.test_draw_triangles();
+    //    device.render(&cam, vec![&mesh_cube, &mesh_cube2]);
         device.present();
 
         let time_end = time::now();

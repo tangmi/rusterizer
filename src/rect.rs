@@ -1,23 +1,48 @@
 use cgmath::Vector2;
 use std::i32;
+use std::cmp;
 
 pub type Point = Vector2<i32>;
 
 #[derive(Debug)]
 pub struct Rect {
-    pub top: i32,
     pub left: i32,
+    pub top: i32,
     pub bottom: i32,
     pub right: i32,
 }
 
 impl Rect {
-    fn new_unsafe(top: i32, right: i32, bottom: i32, left: i32) -> Rect {
+    fn new_unsafe(left: i32, top: i32, right: i32, bottom: i32) -> Rect {
         Rect {
-            top: top,
             left: left,
-            bottom: bottom,
+            top: top,
             right: right,
+            bottom: bottom,
+        }
+    }
+
+    pub fn new(topLeft: Point, bottomRight: Point) -> Rect {
+        assert!(topLeft.x <= bottomRight.x);
+        assert!(topLeft.y <= bottomRight.y);
+        Rect::new_unsafe(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y)
+    }
+
+    pub fn intersect(&self, other: Rect) -> Option<Rect> {
+        let rect = Rect::new_unsafe(
+            cmp::max(self.left, other.left),
+            cmp::max(self.top, other.top),
+            cmp::min(self.right, other.right),
+            cmp::min(self.bottom, other.bottom)
+        );
+
+        if self.right < other.left
+        || self.bottom < other.top
+        || other.right < self.left
+        || other.bottom < self.top {
+            Option::None
+        } else {
+            Option::Some(rect)
         }
     }
 
@@ -36,23 +61,19 @@ impl Rect {
 
     pub fn from_bounding(pts: &[Point]) -> Rect {
         let rect = pts.iter().fold(
-            Rect::new_unsafe(i32::max_value(), i32::min_value(), i32::min_value(), i32::max_value()),
-            |mut acc, &pt| {
-                if pt.x < acc.left {
-                    acc.left = pt.x;
-                }
-                if pt.x > acc.right {
-                    acc.right = pt.x;
-                }
-                if pt.y < acc.top {
-                    acc.top = pt.y;
-                }
-                if pt.y > acc.bottom {
-                    acc.bottom = pt.y;
-                }
-                return acc;
-            }
-        );
+            Rect::new_unsafe(
+                i32::max_value(),
+                i32::max_value(),
+                i32::min_value(),
+                i32::min_value()
+            ),
+            |acc, &pt| Rect::new_unsafe(
+                    cmp::min(pt.x, acc.left),
+                    cmp::min(pt.y, acc.top),
+                    cmp::max(pt.x, acc.right),
+                    cmp::max(pt.y, acc.bottom)
+                )
+            );
         assert!(rect.is_valid());
         rect
     }
