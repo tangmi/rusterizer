@@ -1,8 +1,10 @@
 use cgmath::Vector2;
+use cgmath::Vector3;
 use std::i32;
 use std::cmp;
 
-pub type Point = Vector2<i32>;
+pub type Point2i = Vector2<i32>;
+pub type Point3f = Vector3<f64>;
 
 #[derive(Debug)]
 pub struct Rect {
@@ -22,7 +24,7 @@ impl Rect {
         }
     }
 
-    pub fn new(top_left: Point, bottom_right: Point) -> Rect {
+    pub fn new(top_left: Point2i, bottom_right: Point2i) -> Rect {
         assert!(top_left.x <= bottom_right.x);
         assert!(top_left.y <= bottom_right.y);
         Rect::new_unsafe(top_left.x, top_left.y, bottom_right.x, bottom_right.y)
@@ -51,7 +53,7 @@ impl Rect {
         self.left <= self.right
     }
 
-    // pub fn new_bounding_points(top_left: Point, bottom_right: Point) -> Rect {
+    // pub fn new_bounding_points(top_left: Point2i, bottom_right: Point2i) -> Rect {
     //     // todo validate?
     //     Rect {
     //         top_left: top_left,
@@ -59,7 +61,7 @@ impl Rect {
     //     }
     // }
 
-    pub fn from_bounding(pts: &[Point]) -> Rect {
+    pub fn from_bounding(pts: &[Point2i]) -> Rect {
         let rect = pts.iter().fold(
             Rect::new_unsafe(
                 i32::max_value(),
