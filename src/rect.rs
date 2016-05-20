@@ -22,10 +22,10 @@ impl Rect {
         }
     }
 
-    pub fn new(topLeft: Point, bottomRight: Point) -> Rect {
-        assert!(topLeft.x <= bottomRight.x);
-        assert!(topLeft.y <= bottomRight.y);
-        Rect::new_unsafe(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y)
+    pub fn new(top_left: Point, bottom_right: Point) -> Rect {
+        assert!(top_left.x <= bottom_right.x);
+        assert!(top_left.y <= bottom_right.y);
+        Rect::new_unsafe(top_left.x, top_left.y, bottom_right.x, bottom_right.y)
     }
 
     pub fn intersect(&self, other: Rect) -> Option<Rect> {

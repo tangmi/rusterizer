@@ -2,7 +2,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::BufRead;
 use std::io::Result;
-use std::io::Lines;
 
 use std::f64;
 
@@ -39,7 +38,6 @@ fn read_obj<I>(mesh_name: &str, file: I) -> Mesh where I: Iterator<Item = Result
 enum ObjLine {
     V(Vector3<f64>),
     F(Face),
-    Unknown,
 }
 
 fn parse_line(line: String) -> Option<ObjLine> {
@@ -62,7 +60,7 @@ fn parse_line(line: String) -> Option<ObjLine> {
         Some("f") => {
             let indices : Vec<usize> = iter.filter_map(|s| {
                 // is there a better way to do this?
-                let mut indices = s.split("/");
+                let mut indices = s.split('/');
                 match indices.next() {
                     Some(s) => s.parse().ok(),
                     None => None,

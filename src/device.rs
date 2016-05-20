@@ -1,16 +1,13 @@
 extern crate sdl2;
 extern crate cgmath;
 
-use std::mem;
 use std::f64;
-use std::cmp;
 
 use camera::Camera;
 use mesh::Mesh;
 use bitmap::Bitmap;
 use bitmap::pixel_format::Rgb24;
 use bitmap::pixel_format::TransferToRgb;
-use math::Interpolate;
 
 use sdl2::pixels::Color;
 use sdl2::event::Event;
@@ -24,8 +21,6 @@ use cgmath::Vector2;
 use cgmath::Vector3;
 use cgmath::Matrix3;
 use cgmath::Matrix4;
-use cgmath::Rotation3;
-use cgmath::BaseNum;
 use cgmath::EuclideanVector;
 use cgmath::Vector;
 
@@ -164,7 +159,7 @@ impl<'a> Device<'a> {
                                 let woffset = offset * 3;
                                 let (r, g, b) = slice[offset].transfer();
 
-                                buffer[woffset + 0] = r;
+                                buffer[woffset] = r;
                                 buffer[woffset + 1] = g;
                                 buffer[woffset + 2] = b;
                             }
@@ -199,34 +194,6 @@ impl<'a> Device<'a> {
         self.back_buffer.height() as i32
     }
 
-
-
-
-
-
-
-    pub fn test_draw_triangles(&mut self) {
-        let vec1 = vec!{Vector2::new(10, 70),   Vector2::new(50, 160),  Vector2::new(70, 80)};
-        self.draw_triangle(vec1[0], vec1[1], vec1[2], Color::RGB(255, 0, 0));
-
-        let vec2 = vec!{Vector2::new(180, 50),  Vector2::new(150, 1),   Vector2::new(70, 180)};
-        self.draw_triangle(vec2[0], vec2[1], vec2[2], Color::RGB(255, 255, 255));
-
-        let vec3 = vec!{Vector2::new(180, 150), Vector2::new(120, 160), Vector2::new(130, 180)};
-        self.draw_triangle(vec3[0], vec3[1], vec3[2], Color::RGB(0, 255, 0));
-
-
-
-
-        let vec0 = vec!{Vector2::new(10, 70),  Vector2::new(5, 120), Vector2::new(50, 160)};
-        self.draw_triangle(vec0[0], vec0[1], vec0[2], Color::RGB(100, 100, 0));
-    }
-
-
-
-
-
-
     fn set_pixel(&mut self, point: Point, z: f64, color: Color) {
         if point.x < self.back_buffer.width() as i32
             && point.x >= 0
@@ -244,69 +211,21 @@ impl<'a> Device<'a> {
         }
     }
 
-    /// taken from https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
-    fn draw_line(&mut self, pt0: Point, pt1: Point, color: Color) {
-        let mut x0 = pt0.x as i32;
-        let mut y0 = pt0.y as i32;
-        let mut x1 = pt1.x as i32;
-        let mut y1 = pt1.y as i32;
-
-        let steep = {
-            if (x0 - x1).abs() < (y0 - y1).abs() {
-                // if the line is steep, transpose image
-                mem::swap(&mut x0, &mut y0);
-                mem::swap(&mut x1, &mut y1);
-                true
-            } else {
-                false
-            }
-        };
-
-        if x0 > x1 {
-            // make it so our algorithm goes left to right always
-            mem::swap(&mut x0, &mut x1);
-            mem::swap(&mut y0, &mut y1);
-        }
-
-        let dx = x1 - x0;
-        let dy = y1 - y0;
-        let sgn_dy = dy.signum();
-        let derr2 = dy.abs() * 2;
-        let mut err2 = 0;
-        let mut y = y0;
-        for x in x0..x1 {
-            if steep {
-                self.set_pixel(Vector2::new(y, x), 0.0, color);
-            } else {
-                self.set_pixel(Vector2::new(x, y), 0.0, color);
-            }
-
-            err2 += derr2;
-            if err2 > dx {
-                y += sgn_dy;
-                err2 -= dx * 2;
-            }
-        }
-    }
-
     fn draw_triangle(&mut self, pt0: Point, pt1: Point, pt2: Point, color: Color)
     {
         let pts = vec![pt0, pt1, pt2];
         let bounds = Rect::from_bounding(&pts);
         let window_bounds = Rect::new(Point::new(0, 0), Point::new(self.width(), self.height()));
 
-        match bounds.intersect(window_bounds) {
-            Option::Some(clipped) => {
-                for y in clipped.top..clipped.bottom {
-                    for x in clipped.left..clipped.right {
-                        let pt = Point::new(x, y);
-                        if Device::is_inside_triangle(pt, pt0, pt1, pt2) {
-                            self.set_pixel(pt, 0_f64, color);
-                        }
+        if let Some(clipped) = bounds.intersect(window_bounds) {
+            for y in clipped.top..clipped.bottom {
+                for x in clipped.left..clipped.right {
+                    let pt = Point::new(x, y);
+                    if Device::is_inside_triangle(pt, pt0, pt1, pt2) {
+                        self.set_pixel(pt, 0_f64, color);
                     }
                 }
-            },
-            Option::None => {},
+            }
         }
     }
 
